@@ -2,39 +2,52 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// 64-bit Lightweight Hash Function
-uint64_t lightweight_hash64(const void *data, size_t length) {
-    // 1. Initialize State: Official 64-bit FNV offset basis
+// Define a standard chunk size (4KB is highly optimized for OS disk sectors)
+#define BUFFER_SIZE 4096
+
+// Hashes an open file stream from its current position to EOF
+uint64_t hash_file(FILE *file) {
+    // 1. Initialize State (64-bit FNV constants)
     uint64_t hash_state = 0xCBF29CE484222325ULL;
-    
-    // Official 64-bit magic prime constant for bit dispersion
     const uint64_t magic_prime = 0x00000100000001B3ULL;
     
-    const uint8_t *byte_ptr = (const uint8_t *)data;
+    uint8_t buffer[BUFFER_SIZE];
+    size_t bytes_read;
 
-    // 2. The Mixing Loop
-    for (size_t i = 0; i < length; i++) {
-        // XOR the input byte into the lower bits of the 64-bit state
-        hash_state = hash_state ^ byte_ptr[i];
-        
-        // Multiply by the 64-bit prime to overflow and distribute across all 64 bits
-        hash_state = hash_state * magic_prime;
+    // 2. The Streaming Loop
+    // fread reads up to BUFFER_SIZE bytes at a time into our array
+    while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
+        for (size_t i = 0; i < bytes_read; i++) {
+            hash_state = hash_state ^ buffer[i];
+            hash_state = hash_state * magic_prime;
+        }
     }
 
-    // 3. Finalizer: A wider shift cascade to blend the high and low halves
+    // 3. Finalizer Shift
     hash_state ^= (hash_state >> 32);
     
     return hash_state;
 }
 
-int main() {
-    const char *str1 = "block_type_grass";
-    
-    uint64_t hash = lightweight_hash64(str1, 16);
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
 
-    // Print with %llX or %lX depending on platform, PRIu64 is standard, 
-    // but 0x%016llX forces a clean 16-character hex print.
-    printf("String: '%s'\nHash: 0x%016llX\n", str1, (unsigned long long)hash);
+    // "rb" is critical. On some OS layouts, "r" alters newline characters (\r\n -> \n),
+    // which completely breaks binary integrity hashes.
+    FILE *file = fopen(argv[1], "rb");
+    if (file == NULL) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    uint64_t file_hash = hash_file(file);
+    fclose(file);
+
+    // Print out the final file hash exactly like a checksum utility
+    printf("%016llX  %s\n", (unsigned long long)file_hash, argv[1]);
 
     return 0;
 }
