@@ -1,9 +1,9 @@
-# cash
+# fnv64sum
 This is cash, a lightweight hashing software
 Run by:
 ```bash
 make
-./cash foo.bar
+./fnv64sum foo.bar
 ```
 Clean by:
 ```bash
