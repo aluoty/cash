@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -O3
-TARGET = fnv64sum
+TARGET = build/fnv64sum
 
 all: $(TARGET)
 
